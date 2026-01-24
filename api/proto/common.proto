@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package yggplane.v1;
+
+option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
+
+// Generic server identifier
+message ServerId {
+  string id = 1;
+}

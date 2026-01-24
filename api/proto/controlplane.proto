@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package yggplane.v1;
+
+import "common.proto";
+
+option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
+
+service ControlService {
+  // GS opens outbound stream; CP pushes events down it
+  rpc OpenControlStream(OpenControlStreamRequest) returns (stream ControlEvent);
+}
+
+message OpenControlStreamRequest {
+  yggplane.v1.ServerId server_id = 1;
+}
+
+// Types of control-plane events
+enum ControlEventType {
+  CONTROL_EVENT_UNSPECIFIED = 0;
+}
+
+message ControlEvent {
+  ControlEventType type = 1;
+}
