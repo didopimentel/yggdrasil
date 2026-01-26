@@ -35,7 +35,7 @@ func TestOpenControlStreamConnects(t *testing.T) {
 		_ = lis.Close()
 	})
 
-	conn, err := grpc.DialContext(ctx, lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}

@@ -5,6 +5,8 @@ import (
 
 	"github.com/didopimentel/yggdrasil/api/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ControlPlane struct {
@@ -21,11 +23,10 @@ func New(logger *slog.Logger) *ControlPlane {
 func (cp *ControlPlane) OpenControlStream(req *pb.OpenControlStreamRequest, stream grpc.ServerStreamingServer[pb.ControlEvent]) error {
 	if req.ServerId == nil {
 		cp.logger.Warn("control stream opened with no server ID")
-		return grpc.ErrServerStopped.Error()
+		return status.Error(codes.InvalidArgument, "server ID is required")
 	}
 
-	if req.ServerId != nil {
-		cp.logger.Info("control stream opened", "server_id", req.ServerId.Id)
-	}
+	cp.logger.Info("control stream opened", "server_id", req.ServerId.Id)
+
 	return nil
 }
