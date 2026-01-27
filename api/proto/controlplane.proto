@@ -9,6 +9,13 @@ option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
 service ControlService {
   // GS opens outbound stream; CP pushes events down it
   rpc OpenControlStream(OpenControlStreamRequest) returns (stream ControlEvent);
+
+  // Inbound ops use streaming for throughput; server replies with per-message acks
+  rpc RegisterServer(stream RegisterServerRequest) returns (stream ControlAck);
+  rpc UnregisterServer(stream UnregisterServerRequest) returns (stream ControlAck);
+  rpc AssignPlayer(stream AssignPlayerRequest) returns (stream ControlAck);
+  rpc UpdatePlayerPosition(stream UpdatePlayerPositionRequest) returns (stream ControlAck);
+  rpc CompleteMigration(stream CompleteMigrationRequest) returns (stream ControlAck);
 }
 
 message OpenControlStreamRequest {
@@ -18,8 +25,46 @@ message OpenControlStreamRequest {
 // Types of control-plane events
 enum ControlEventType {
   CONTROL_EVENT_UNSPECIFIED = 0;
+  CONTROL_EVENT_MIGRATE_OUT = 1;
 }
 
 message ControlEvent {
   ControlEventType type = 1;
+  oneof payload {
+    MigrateOutEvent migrate_out = 2;
+  }
+}
+
+message MigrateOutEvent {
+  yggplane.v1.PlayerId player_id = 1;
+  yggplane.v1.Server new_server = 2;
+}
+
+// Generic acknowledgement for inbound operations
+message ControlAck {
+  bool ok = 1;
+  string message = 2;
+}
+
+message RegisterServerRequest {
+  yggplane.v1.Server server = 1;
+}
+
+message UnregisterServerRequest {
+  yggplane.v1.ServerId server_id = 1;
+}
+
+message AssignPlayerRequest {
+  yggplane.v1.PlayerId player_id = 1;
+  yggplane.v1.Position position = 2;
+}
+
+message UpdatePlayerPositionRequest {
+  yggplane.v1.PlayerId player_id = 1;
+  yggplane.v1.Position position = 2;
+}
+
+message CompleteMigrationRequest {
+  yggplane.v1.PlayerId player_id = 1;
+  yggplane.v1.ServerId server_id = 2;
 }

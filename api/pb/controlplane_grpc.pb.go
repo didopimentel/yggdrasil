@@ -19,7 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlService_OpenControlStream_FullMethodName = "/yggplane.v1.ControlService/OpenControlStream"
+	ControlService_OpenControlStream_FullMethodName    = "/yggplane.v1.ControlService/OpenControlStream"
+	ControlService_RegisterServer_FullMethodName       = "/yggplane.v1.ControlService/RegisterServer"
+	ControlService_UnregisterServer_FullMethodName     = "/yggplane.v1.ControlService/UnregisterServer"
+	ControlService_AssignPlayer_FullMethodName         = "/yggplane.v1.ControlService/AssignPlayer"
+	ControlService_UpdatePlayerPosition_FullMethodName = "/yggplane.v1.ControlService/UpdatePlayerPosition"
+	ControlService_CompleteMigration_FullMethodName    = "/yggplane.v1.ControlService/CompleteMigration"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -28,6 +33,12 @@ const (
 type ControlServiceClient interface {
 	// GS opens outbound stream; CP pushes events down it
 	OpenControlStream(ctx context.Context, in *OpenControlStreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ControlEvent], error)
+	// Inbound ops use streaming for throughput; server replies with per-message acks
+	RegisterServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RegisterServerRequest, ControlAck], error)
+	UnregisterServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UnregisterServerRequest, ControlAck], error)
+	AssignPlayer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AssignPlayerRequest, ControlAck], error)
+	UpdatePlayerPosition(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UpdatePlayerPositionRequest, ControlAck], error)
+	CompleteMigration(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CompleteMigrationRequest, ControlAck], error)
 }
 
 type controlServiceClient struct {
@@ -57,12 +68,83 @@ func (c *controlServiceClient) OpenControlStream(ctx context.Context, in *OpenCo
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_OpenControlStreamClient = grpc.ServerStreamingClient[ControlEvent]
 
+func (c *controlServiceClient) RegisterServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[RegisterServerRequest, ControlAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[1], ControlService_RegisterServer_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[RegisterServerRequest, ControlAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_RegisterServerClient = grpc.BidiStreamingClient[RegisterServerRequest, ControlAck]
+
+func (c *controlServiceClient) UnregisterServer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UnregisterServerRequest, ControlAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[2], ControlService_UnregisterServer_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[UnregisterServerRequest, ControlAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_UnregisterServerClient = grpc.BidiStreamingClient[UnregisterServerRequest, ControlAck]
+
+func (c *controlServiceClient) AssignPlayer(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[AssignPlayerRequest, ControlAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[3], ControlService_AssignPlayer_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[AssignPlayerRequest, ControlAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_AssignPlayerClient = grpc.BidiStreamingClient[AssignPlayerRequest, ControlAck]
+
+func (c *controlServiceClient) UpdatePlayerPosition(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UpdatePlayerPositionRequest, ControlAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[4], ControlService_UpdatePlayerPosition_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[UpdatePlayerPositionRequest, ControlAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_UpdatePlayerPositionClient = grpc.BidiStreamingClient[UpdatePlayerPositionRequest, ControlAck]
+
+func (c *controlServiceClient) CompleteMigration(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[CompleteMigrationRequest, ControlAck], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[5], ControlService_CompleteMigration_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[CompleteMigrationRequest, ControlAck]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_CompleteMigrationClient = grpc.BidiStreamingClient[CompleteMigrationRequest, ControlAck]
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations must embed UnimplementedControlServiceServer
 // for forward compatibility.
 type ControlServiceServer interface {
 	// GS opens outbound stream; CP pushes events down it
 	OpenControlStream(*OpenControlStreamRequest, grpc.ServerStreamingServer[ControlEvent]) error
+	// Inbound ops use streaming for throughput; server replies with per-message acks
+	RegisterServer(grpc.BidiStreamingServer[RegisterServerRequest, ControlAck]) error
+	UnregisterServer(grpc.BidiStreamingServer[UnregisterServerRequest, ControlAck]) error
+	AssignPlayer(grpc.BidiStreamingServer[AssignPlayerRequest, ControlAck]) error
+	UpdatePlayerPosition(grpc.BidiStreamingServer[UpdatePlayerPositionRequest, ControlAck]) error
+	CompleteMigration(grpc.BidiStreamingServer[CompleteMigrationRequest, ControlAck]) error
 	mustEmbedUnimplementedControlServiceServer()
 }
 
@@ -75,6 +157,21 @@ type UnimplementedControlServiceServer struct{}
 
 func (UnimplementedControlServiceServer) OpenControlStream(*OpenControlStreamRequest, grpc.ServerStreamingServer[ControlEvent]) error {
 	return status.Error(codes.Unimplemented, "method OpenControlStream not implemented")
+}
+func (UnimplementedControlServiceServer) RegisterServer(grpc.BidiStreamingServer[RegisterServerRequest, ControlAck]) error {
+	return status.Error(codes.Unimplemented, "method RegisterServer not implemented")
+}
+func (UnimplementedControlServiceServer) UnregisterServer(grpc.BidiStreamingServer[UnregisterServerRequest, ControlAck]) error {
+	return status.Error(codes.Unimplemented, "method UnregisterServer not implemented")
+}
+func (UnimplementedControlServiceServer) AssignPlayer(grpc.BidiStreamingServer[AssignPlayerRequest, ControlAck]) error {
+	return status.Error(codes.Unimplemented, "method AssignPlayer not implemented")
+}
+func (UnimplementedControlServiceServer) UpdatePlayerPosition(grpc.BidiStreamingServer[UpdatePlayerPositionRequest, ControlAck]) error {
+	return status.Error(codes.Unimplemented, "method UpdatePlayerPosition not implemented")
+}
+func (UnimplementedControlServiceServer) CompleteMigration(grpc.BidiStreamingServer[CompleteMigrationRequest, ControlAck]) error {
+	return status.Error(codes.Unimplemented, "method CompleteMigration not implemented")
 }
 func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
 func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
@@ -108,6 +205,41 @@ func _ControlService_OpenControlStream_Handler(srv interface{}, stream grpc.Serv
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_OpenControlStreamServer = grpc.ServerStreamingServer[ControlEvent]
 
+func _ControlService_RegisterServer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServiceServer).RegisterServer(&grpc.GenericServerStream[RegisterServerRequest, ControlAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_RegisterServerServer = grpc.BidiStreamingServer[RegisterServerRequest, ControlAck]
+
+func _ControlService_UnregisterServer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServiceServer).UnregisterServer(&grpc.GenericServerStream[UnregisterServerRequest, ControlAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_UnregisterServerServer = grpc.BidiStreamingServer[UnregisterServerRequest, ControlAck]
+
+func _ControlService_AssignPlayer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServiceServer).AssignPlayer(&grpc.GenericServerStream[AssignPlayerRequest, ControlAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_AssignPlayerServer = grpc.BidiStreamingServer[AssignPlayerRequest, ControlAck]
+
+func _ControlService_UpdatePlayerPosition_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServiceServer).UpdatePlayerPosition(&grpc.GenericServerStream[UpdatePlayerPositionRequest, ControlAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_UpdatePlayerPositionServer = grpc.BidiStreamingServer[UpdatePlayerPositionRequest, ControlAck]
+
+func _ControlService_CompleteMigration_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServiceServer).CompleteMigration(&grpc.GenericServerStream[CompleteMigrationRequest, ControlAck]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_CompleteMigrationServer = grpc.BidiStreamingServer[CompleteMigrationRequest, ControlAck]
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +252,36 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "OpenControlStream",
 			Handler:       _ControlService_OpenControlStream_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "RegisterServer",
+			Handler:       _ControlService_RegisterServer_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "UnregisterServer",
+			Handler:       _ControlService_UnregisterServer_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "AssignPlayer",
+			Handler:       _ControlService_AssignPlayer_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "UpdatePlayerPosition",
+			Handler:       _ControlService_UpdatePlayerPosition_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "CompleteMigration",
+			Handler:       _ControlService_CompleteMigration_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "controlplane.proto",

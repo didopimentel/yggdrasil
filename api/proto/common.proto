@@ -4,7 +4,22 @@ package yggplane.v1;
 
 option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
 
-// Generic server identifier
 message ServerId {
   string id = 1;
+}
+
+message Server {
+  string id = 1;
+  string address = 2;
+}
+
+message PlayerId {
+  string id = 1;
+}
+
+
+message Position {
+  double x = 1;
+  double y = 2;
+  double z = 3;
 }

@@ -21,7 +21,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Generic server identifier
 type ServerId struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -66,13 +65,178 @@ func (x *ServerId) GetId() string {
 	return ""
 }
 
+type Server struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Server) Reset() {
+	*x = Server{}
+	mi := &file_common_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Server) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Server) ProtoMessage() {}
+
+func (x *Server) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Server.ProtoReflect.Descriptor instead.
+func (*Server) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Server) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Server) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type PlayerId struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PlayerId) Reset() {
+	*x = PlayerId{}
+	mi := &file_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PlayerId) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PlayerId) ProtoMessage() {}
+
+func (x *PlayerId) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PlayerId.ProtoReflect.Descriptor instead.
+func (*PlayerId) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PlayerId) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type Position struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	Z             float64                `protobuf:"fixed64,3,opt,name=z,proto3" json:"z,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Position) Reset() {
+	*x = Position{}
+	mi := &file_common_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Position) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Position) ProtoMessage() {}
+
+func (x *Position) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Position.ProtoReflect.Descriptor instead.
+func (*Position) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Position) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *Position) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *Position) GetZ() float64 {
+	if x != nil {
+		return x.Z
+	}
+	return 0
+}
+
 var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
 	"\n" +
 	"\fcommon.proto\x12\vyggplane.v1\"\x1a\n" +
 	"\bServerId\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02idB-Z+github.com/didopimentel/yggdrasil/api/pb;pbb\x06proto3"
+	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
+	"\x06Server\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\"\x1a\n" +
+	"\bPlayerId\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"4\n" +
+	"\bPosition\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\x12\f\n" +
+	"\x01z\x18\x03 \x01(\x01R\x01zB-Z+github.com/didopimentel/yggdrasil/api/pb;pbb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -86,9 +250,12 @@ func file_common_proto_rawDescGZIP() []byte {
 	return file_common_proto_rawDescData
 }
 
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_common_proto_goTypes = []any{
 	(*ServerId)(nil), // 0: yggplane.v1.ServerId
+	(*Server)(nil),   // 1: yggplane.v1.Server
+	(*PlayerId)(nil), // 2: yggplane.v1.PlayerId
+	(*Position)(nil), // 3: yggplane.v1.Position
 }
 var file_common_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -109,7 +276,7 @@ func file_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
