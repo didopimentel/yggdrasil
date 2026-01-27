@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package yggplane.v1;
+
+import "common.proto";
+
+option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
+
+// Server lifecycle operations
+service ServerManagerService {
+  rpc RegisterServer(stream RegisterServerRequest) returns (stream ControlAck);
+  rpc UnregisterServer(stream UnregisterServerRequest) returns (stream ControlAck);
+}
+
+message RegisterServerRequest {
+  yggplane.v1.Server server = 1;
+}
+
+message UnregisterServerRequest {
+  yggplane.v1.ServerId server_id = 1;
+}

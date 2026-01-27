@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package yggplane.v1;
+
+import "common.proto";
+
+option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
+
+// Outbound events from control-plane to game servers
+service ControlService {
+  // GS opens outbound stream; CP pushes events down it
+  rpc OpenControlStream(OpenControlStreamRequest) returns (stream ControlEvent);
+}
+
+message OpenControlStreamRequest {
+  yggplane.v1.ServerId server_id = 1;
+}
+
+// Types of control-plane events
+enum ControlEventType {
+  CONTROL_EVENT_UNSPECIFIED = 0;
+  CONTROL_EVENT_MIGRATE_OUT = 1;
+}
+
+message ControlEvent {
+  ControlEventType type = 1;
+  oneof payload {
+    MigrateOutEvent migrate_out = 2;
+  }
+}
+
+message MigrateOutEvent {
+  yggplane.v1.PlayerId player_id = 1;
+  yggplane.v1.Server new_server = 2;
+}

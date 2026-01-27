@@ -221,6 +221,59 @@ func (x *Position) GetZ() float64 {
 	return 0
 }
 
+// Generic acknowledgement for inbound operations
+type ControlAck struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ControlAck) Reset() {
+	*x = ControlAck{}
+	mi := &file_common_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ControlAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ControlAck) ProtoMessage() {}
+
+func (x *ControlAck) ProtoReflect() protoreflect.Message {
+	mi := &file_common_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ControlAck.ProtoReflect.Descriptor instead.
+func (*ControlAck) Descriptor() ([]byte, []int) {
+	return file_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ControlAck) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *ControlAck) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
@@ -236,7 +289,11 @@ const file_common_proto_rawDesc = "" +
 	"\bPosition\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\f\n" +
-	"\x01z\x18\x03 \x01(\x01R\x01zB-Z+github.com/didopimentel/yggdrasil/api/pb;pbb\x06proto3"
+	"\x01z\x18\x03 \x01(\x01R\x01z\"6\n" +
+	"\n" +
+	"ControlAck\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessageB-Z+github.com/didopimentel/yggdrasil/api/pb;pbb\x06proto3"
 
 var (
 	file_common_proto_rawDescOnce sync.Once
@@ -250,12 +307,13 @@ func file_common_proto_rawDescGZIP() []byte {
 	return file_common_proto_rawDescData
 }
 
-var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_common_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_common_proto_goTypes = []any{
-	(*ServerId)(nil), // 0: yggplane.v1.ServerId
-	(*Server)(nil),   // 1: yggplane.v1.Server
-	(*PlayerId)(nil), // 2: yggplane.v1.PlayerId
-	(*Position)(nil), // 3: yggplane.v1.Position
+	(*ServerId)(nil),   // 0: yggplane.v1.ServerId
+	(*Server)(nil),     // 1: yggplane.v1.Server
+	(*PlayerId)(nil),   // 2: yggplane.v1.PlayerId
+	(*Position)(nil),   // 3: yggplane.v1.Position
+	(*ControlAck)(nil), // 4: yggplane.v1.ControlAck
 }
 var file_common_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -276,7 +334,7 @@ func file_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_common_proto_rawDesc), len(file_common_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -23,3 +23,9 @@ message Position {
   double y = 2;
   double z = 3;
 }
+
+// Generic acknowledgement for inbound operations
+message ControlAck {
+  bool ok = 1;
+  string message = 2;
+}
