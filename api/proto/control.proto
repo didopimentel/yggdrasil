@@ -6,6 +6,7 @@ import "common.proto";
 
 option go_package = "github.com/didopimentel/yggdrasil/api/pb;pb";
 
+
 // Outbound events from control-plane to game servers
 service ControlService {
   // GS opens outbound stream; CP pushes events down it

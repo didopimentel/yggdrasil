@@ -5,6 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/didopimentel/yggdrasil/api/pb"
+	"github.com/didopimentel/yggdrasil/internal/entities"
+	"github.com/didopimentel/yggdrasil/internal/repository"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,11 +14,14 @@ import (
 
 type ServerManager struct {
 	pb.UnimplementedServerManagerServiceServer
-	logger *slog.Logger
+	logger            *slog.Logger
+	serverToCellRatio int
+	cellRegistry      *repository.CellRegistryRepository
+	serverRegistry    *repository.ServerRegistryRepository
 }
 
-func New(logger *slog.Logger) *ServerManager {
-	return &ServerManager{logger: logger}
+func New(logger *slog.Logger, serverToCellRatio int, cellRegistry *repository.CellRegistryRepository, serverRegistry *repository.ServerRegistryRepository) *ServerManager {
+	return &ServerManager{logger: logger, serverToCellRatio: serverToCellRatio, cellRegistry: cellRegistry, serverRegistry: serverRegistry}
 }
 
 func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.RegisterServerRequest, pb.ControlAck]) error {
@@ -37,9 +42,32 @@ func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.Regis
 			continue
 		}
 
+		serverID := entities.ServerID(server.GetId())
+		serverEntity := entities.Server{
+			ID:      serverID,
+			Address: server.GetAddress(),
+			Port:    server.GetPort(),
+		}
+		sm.assignCells(serverID)
+
+		sm.serverRegistry.SetServer(serverID, serverEntity)
+
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send register server ack: %v", sendErr)
 		}
+	}
+}
+
+func (sm *ServerManager) assignCells(serverID entities.ServerID) {
+	unassignedCells := sm.cellRegistry.UnassignedCells
+	cellsToAssign := sm.serverToCellRatio
+	if len(unassignedCells) < cellsToAssign {
+		cellsToAssign = len(unassignedCells)
+	}
+
+	for i := 0; i < cellsToAssign; i++ {
+		cell := unassignedCells[i]
+		sm.cellRegistry.AssignServerToCell(serverID, cell)
 	}
 }
 
@@ -60,6 +88,9 @@ func (sm *ServerManager) UnregisterServer(stream grpc.BidiStreamingServer[pb.Unr
 			}
 			continue
 		}
+
+		sm.cellRegistry.UnassignServerFromAllCells(entities.ServerID(serverID.GetId()))
+		sm.serverRegistry.DeleteServer(entities.ServerID(serverID.GetId()))
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send unregister server ack: %v", sendErr)

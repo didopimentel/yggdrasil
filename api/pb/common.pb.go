@@ -69,6 +69,7 @@ type Server struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Address       string                 `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Port          uint32                 `protobuf:"varint,3,opt,name=port,proto3" json:"port,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -115,6 +116,13 @@ func (x *Server) GetAddress() string {
 		return x.Address
 	}
 	return ""
+}
+
+func (x *Server) GetPort() uint32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
 }
 
 type PlayerId struct {
@@ -280,10 +288,11 @@ const file_common_proto_rawDesc = "" +
 	"\n" +
 	"\fcommon.proto\x12\vyggplane.v1\"\x1a\n" +
 	"\bServerId\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"F\n" +
 	"\x06Server\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\tR\aaddress\"\x1a\n" +
+	"\aaddress\x18\x02 \x01(\tR\aaddress\x12\x12\n" +
+	"\x04port\x18\x03 \x01(\rR\x04port\"\x1a\n" +
 	"\bPlayerId\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"4\n" +
 	"\bPosition\x12\f\n" +
