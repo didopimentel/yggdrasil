@@ -8,7 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/didopimentel/yggdrasil/api/pb"
+	"github.com/didopimentel/yggdrasil/internal/entities"
+	"github.com/didopimentel/yggdrasil/internal/repository"
 	"github.com/didopimentel/yggdrasil/internal/servermanager"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -18,13 +21,46 @@ func TestRegisterServer_AckOk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
+	cellOwnerCache, err := ristretto.NewCache[entities.Cell, entities.ServerID](&ristretto.Config[entities.Cell, entities.ServerID]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create cell owner cache: %v", err)
+	}
+	t.Cleanup(cellOwnerCache.Close)
+
+	serverCellsCache, err := ristretto.NewCache[entities.ServerID, []entities.Cell](&ristretto.Config[entities.ServerID, []entities.Cell]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server cells cache: %v", err)
+	}
+	t.Cleanup(serverCellsCache.Close)
+
+	serverRegistryCache, err := ristretto.NewCache[entities.ServerID, entities.Server](&ristretto.Config[entities.ServerID, entities.Server]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server registry cache: %v", err)
+	}
+	t.Cleanup(serverRegistryCache.Close)
+
+	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 100)
+	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default()))
+	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default(), 10, cellRegistry, serverRegistry))
 
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -69,13 +105,46 @@ func TestRegisterServer_ValidationError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
+	cellOwnerCache, err := ristretto.NewCache[entities.Cell, entities.ServerID](&ristretto.Config[entities.Cell, entities.ServerID]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create cell owner cache: %v", err)
+	}
+	t.Cleanup(cellOwnerCache.Close)
+
+	serverCellsCache, err := ristretto.NewCache[entities.ServerID, []entities.Cell](&ristretto.Config[entities.ServerID, []entities.Cell]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server cells cache: %v", err)
+	}
+	t.Cleanup(serverCellsCache.Close)
+
+	serverRegistryCache, err := ristretto.NewCache[entities.ServerID, entities.Server](&ristretto.Config[entities.ServerID, entities.Server]{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		t.Fatalf("failed to create server registry cache: %v", err)
+	}
+	t.Cleanup(serverRegistryCache.Close)
+
+	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 100)
+	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default()))
+	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default(), 10, cellRegistry, serverRegistry))
 
 	go func() {
 		_ = grpcServer.Serve(lis)

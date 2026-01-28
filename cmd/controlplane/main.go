@@ -68,8 +68,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M).
+		MaxCost:     1 << 30, // maximum cost of cache (1GB).
+		BufferItems: 64,      // number of keys per Get buffer.
+	})
+	if err != nil {
+		logger.Error("failed to create cache", "error", err)
+		os.Exit(1)
+	}
+
 	// --- Initialize repositories ---
-	cellRegistryRepository := repository.NewCellRegistryRepository(cellRegistryCache, cellAmount)
+
+	cellRegistryRepository := repository.NewCellRegistryRepository(cellRegistryCache, serverCellsCache, cellAmount)
 	playerPositionRepository := repository.NewPlayerPositionRepository(playerPositionCache)
 	playerServerRepository := repository.NewPlayerServerRepository(playerServerCache)
 	serverRegistryRepository := repository.NewServerRegistryRepository(serverRegistryCache)
