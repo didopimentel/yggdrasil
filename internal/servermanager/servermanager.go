@@ -59,7 +59,8 @@ func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.Regis
 }
 
 func (sm *ServerManager) assignCells(serverID entities.ServerID) {
-	unassignedCells := sm.cellRegistry.UnassignedCells
+	unassignedCells := make([]entities.Cell, len(sm.cellRegistry.UnassignedCells))
+	copy(unassignedCells, sm.cellRegistry.UnassignedCells)
 	cellsToAssign := sm.serverToCellRatio
 	if len(unassignedCells) < cellsToAssign {
 		cellsToAssign = len(unassignedCells)

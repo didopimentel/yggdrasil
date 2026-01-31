@@ -17,11 +17,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func TestRegisterServer_AckOk(t *testing.T) {
+func TestRegisterServer_Success(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
-	cellOwnerCache, err := ristretto.NewCache[entities.Cell, entities.ServerID](&ristretto.Config[entities.Cell, entities.ServerID]{
+	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
@@ -31,7 +31,7 @@ func TestRegisterServer_AckOk(t *testing.T) {
 	}
 	t.Cleanup(cellOwnerCache.Close)
 
-	serverCellsCache, err := ristretto.NewCache[entities.ServerID, []entities.Cell](&ristretto.Config[entities.ServerID, []entities.Cell]{
+	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
@@ -41,7 +41,7 @@ func TestRegisterServer_AckOk(t *testing.T) {
 	}
 	t.Cleanup(serverCellsCache.Close)
 
-	serverRegistryCache, err := ristretto.NewCache[entities.ServerID, entities.Server](&ristretto.Config[entities.ServerID, entities.Server]{
+	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
@@ -99,13 +99,30 @@ func TestRegisterServer_AckOk(t *testing.T) {
 	if _, err = stream.Recv(); err != io.EOF {
 		t.Fatalf("expected EOF after close, got: %v", err)
 	}
+
+	// Verify that the server was assigned to the first 10 cells
+	serverID := entities.ServerID("s1")
+	assignedCells, found := serverCellsCache.Get(serverID)
+	if !found {
+		t.Fatalf("expected server to be assigned to cells, but no entry found in cache")
+	}
+	if len(assignedCells) != 10 {
+		t.Fatalf("expected server to be assigned to 10 cells, got %d", len(assignedCells))
+	}
+
+	// Verify the cells are the first 10 (0-9)
+	for i, cell := range assignedCells {
+		if cell != entities.Cell(i) {
+			t.Fatalf("expected cell at index %d to be %d, got %d", i, i, cell)
+		}
+	}
 }
 
 func TestRegisterServer_ValidationError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
-	cellOwnerCache, err := ristretto.NewCache[entities.Cell, entities.ServerID](&ristretto.Config[entities.Cell, entities.ServerID]{
+	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
@@ -115,7 +132,7 @@ func TestRegisterServer_ValidationError(t *testing.T) {
 	}
 	t.Cleanup(cellOwnerCache.Close)
 
-	serverCellsCache, err := ristretto.NewCache[entities.ServerID, []entities.Cell](&ristretto.Config[entities.ServerID, []entities.Cell]{
+	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
@@ -125,7 +142,7 @@ func TestRegisterServer_ValidationError(t *testing.T) {
 	}
 	t.Cleanup(serverCellsCache.Close)
 
-	serverRegistryCache, err := ristretto.NewCache[entities.ServerID, entities.Server](&ristretto.Config[entities.ServerID, entities.Server]{
+	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
 		NumCounters: 1e7,
 		MaxCost:     1 << 30,
 		BufferItems: 64,

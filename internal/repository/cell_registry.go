@@ -13,7 +13,11 @@ type CellRegistryRepository struct {
 }
 
 func NewCellRegistryRepository(cellOwner *ristretto.Cache[entities.Cell, entities.ServerID], serverCells *ristretto.Cache[entities.ServerID, []entities.Cell], cellAmount uint64) *CellRegistryRepository {
-	return &CellRegistryRepository{CellOwner: cellOwner, ServerCells: serverCells, CellAmount: cellAmount, UnassignedCells: make([]entities.Cell, 0, cellAmount)}
+	unassignedCells := make([]entities.Cell, 0, cellAmount)
+	for i := range cellAmount {
+		unassignedCells = append(unassignedCells, entities.Cell(i))
+	}
+	return &CellRegistryRepository{CellOwner: cellOwner, ServerCells: serverCells, CellAmount: cellAmount, UnassignedCells: unassignedCells}
 }
 
 func (r *CellRegistryRepository) GetCellOwner(cell entities.Cell) (entities.ServerID, bool) {
@@ -23,6 +27,7 @@ func (r *CellRegistryRepository) GetCellOwner(cell entities.Cell) (entities.Serv
 
 func (r *CellRegistryRepository) AssignServerToCell(serverID entities.ServerID, cell entities.Cell) bool {
 	r.CellOwner.Set(cell, serverID, 1)
+	r.CellOwner.Wait()
 	value, found := r.ServerCells.Get(serverID)
 	if found {
 		value = append(value, cell)
@@ -30,6 +35,7 @@ func (r *CellRegistryRepository) AssignServerToCell(serverID entities.ServerID, 
 		value = []entities.Cell{cell}
 	}
 	r.ServerCells.Set(serverID, value, 1)
+	r.ServerCells.Wait()
 	r.UnassignedCells = r.removeCell(r.UnassignedCells, cell)
 	return r.CellOwner.Set(cell, serverID, 1)
 }
