@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/didopimentel/yggdrasil/api/pb"
@@ -25,13 +26,49 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	// --- Read and validate configuration from environment ---
 	cellAmount := uint64(500)
+	if v := os.Getenv("YGGDRASIL_CELL_AMOUNT"); v != "" {
+		parsed, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			logger.Error("invalid YGGDRASIL_CELL_AMOUNT", "value", v, "error", err)
+			os.Exit(1)
+		}
+		if parsed == 0 {
+			logger.Error("YGGDRASIL_CELL_AMOUNT must be > 0")
+			os.Exit(1)
+		}
+		cellAmount = parsed
+	}
+
+	addr := ":9000"
+	if v := os.Getenv("YGGDRASIL_ADDR"); v != "" {
+		addr = v
+	}
+	if addr == "" {
+		logger.Error("YGGDRASIL_ADDR must be non-empty")
+		os.Exit(1)
+	}
+
+	serverToCellRatio := 10
+	if v := os.Getenv("YGGDRASIL_SERVER_TO_CELL_RATIO"); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil {
+			logger.Error("invalid YGGDRASIL_SERVER_TO_CELL_RATIO", "value", v, "error", err)
+			os.Exit(1)
+		}
+		if parsed <= 0 {
+			logger.Error("YGGDRASIL_SERVER_TO_CELL_RATIO must be > 0")
+			os.Exit(1)
+		}
+		serverToCellRatio = parsed
+	}
 
 	// --- Initialize cache ---
 	playerPositionCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.Position]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
 	})
 	if err != nil {
 		logger.Error("failed to create cache", "error", err)
@@ -39,9 +76,9 @@ func main() {
 	}
 
 	playerServerCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.ServerID]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
 	})
 	if err != nil {
 		logger.Error("failed to create cache", "error", err)
@@ -49,9 +86,9 @@ func main() {
 	}
 
 	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
 	})
 	if err != nil {
 		logger.Error("failed to create cache", "error", err)
@@ -59,9 +96,9 @@ func main() {
 	}
 
 	cellRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
 	})
 	if err != nil {
 		logger.Error("failed to create cache", "error", err)
@@ -69,9 +106,9 @@ func main() {
 	}
 
 	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
 	})
 	if err != nil {
 		logger.Error("failed to create cache", "error", err)
@@ -79,7 +116,6 @@ func main() {
 	}
 
 	// --- Initialize repositories ---
-
 	cellRegistryRepository := repository.NewCellRegistryRepository(cellRegistryCache, serverCellsCache, cellAmount)
 	playerPositionRepository := repository.NewPlayerPositionRepository(playerPositionCache)
 	playerServerRepository := repository.NewPlayerServerRepository(playerServerCache)
@@ -91,18 +127,16 @@ func main() {
 	// --- Init control-plane orchestrator ---
 	controlPlane := controlplane.New(logger)
 	placement := placement.New(logger)
-	serverManager := servermanager.New(logger, 10, cellRegistryRepository, serverRegistryRepository)
+	serverManager := servermanager.New(logger, serverToCellRatio, cellRegistryRepository, serverRegistryRepository)
 
 	// --- gRPC server ---
 	grpcServer := grpc.NewServer()
 
-	// Register API implementations (server-side)
 	pb.RegisterControlServiceServer(grpcServer, controlPlane)
 	pb.RegisterPlacementServiceServer(grpcServer, placement)
 	pb.RegisterServerManagerServiceServer(grpcServer, serverManager)
 
 	// --- Start listening ---
-	addr := ":9000" // MVP, can be flag/env configurable
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		logger.Error("failed to listen", "addr", addr, "error", err)
@@ -111,7 +145,6 @@ func main() {
 
 	logger.Info("controlplane server starting", "addr", addr)
 
-	// Run server in background
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			logger.Error("gRPC server exited", "error", err)
