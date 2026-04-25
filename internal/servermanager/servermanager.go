@@ -48,27 +48,13 @@ func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.Regis
 			Address: server.GetAddress(),
 			Port:    server.GetPort(),
 		}
-		sm.assignCells(serverID)
+		sm.cellRegistry.AssignCells(serverID, sm.serverToCellRatio)
 
 		sm.serverRegistry.SetServer(serverID, serverEntity)
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send register server ack: %v", sendErr)
 		}
-	}
-}
-
-func (sm *ServerManager) assignCells(serverID entities.ServerID) {
-	unassignedCells := make([]entities.Cell, len(sm.cellRegistry.UnassignedCells))
-	copy(unassignedCells, sm.cellRegistry.UnassignedCells)
-	cellsToAssign := sm.serverToCellRatio
-	if len(unassignedCells) < cellsToAssign {
-		cellsToAssign = len(unassignedCells)
-	}
-
-	for i := 0; i < cellsToAssign; i++ {
-		cell := unassignedCells[i]
-		sm.cellRegistry.AssignServerToCell(serverID, cell)
 	}
 }
 
