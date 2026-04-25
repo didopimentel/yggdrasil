@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"sync"
+
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/didopimentel/yggdrasil/internal/entities"
 )
@@ -9,7 +11,8 @@ type CellRegistryRepository struct {
 	CellOwner       *ristretto.Cache[entities.Cell, entities.ServerID]
 	ServerCells     *ristretto.Cache[entities.ServerID, []entities.Cell]
 	CellAmount      uint64
-	UnassignedCells []entities.Cell
+	mu              sync.Mutex
+	unassignedCells []entities.Cell
 }
 
 func NewCellRegistryRepository(cellOwner *ristretto.Cache[entities.Cell, entities.ServerID], serverCells *ristretto.Cache[entities.ServerID, []entities.Cell], cellAmount uint64) *CellRegistryRepository {
@@ -17,7 +20,7 @@ func NewCellRegistryRepository(cellOwner *ristretto.Cache[entities.Cell, entitie
 	for i := range cellAmount {
 		unassignedCells = append(unassignedCells, entities.Cell(i))
 	}
-	return &CellRegistryRepository{CellOwner: cellOwner, ServerCells: serverCells, CellAmount: cellAmount, UnassignedCells: unassignedCells}
+	return &CellRegistryRepository{CellOwner: cellOwner, ServerCells: serverCells, CellAmount: cellAmount, unassignedCells: unassignedCells}
 }
 
 func (r *CellRegistryRepository) GetCellOwner(cell entities.Cell) (entities.ServerID, bool) {
@@ -25,7 +28,24 @@ func (r *CellRegistryRepository) GetCellOwner(cell entities.Cell) (entities.Serv
 	return value, found
 }
 
-func (r *CellRegistryRepository) AssignServerToCell(serverID entities.ServerID, cell entities.Cell) bool {
+// AssignCells atomically picks up to n unassigned cells and assigns them to serverID.
+func (r *CellRegistryRepository) AssignCells(serverID entities.ServerID, n int) {
+	r.mu.Lock()
+	toAssign := n
+	if len(r.unassignedCells) < toAssign {
+		toAssign = len(r.unassignedCells)
+	}
+	cells := make([]entities.Cell, toAssign)
+	copy(cells, r.unassignedCells[:toAssign])
+	r.unassignedCells = r.unassignedCells[toAssign:]
+	r.mu.Unlock()
+
+	for _, cell := range cells {
+		r.assignServerToCell(serverID, cell)
+	}
+}
+
+func (r *CellRegistryRepository) assignServerToCell(serverID entities.ServerID, cell entities.Cell) {
 	r.CellOwner.Set(cell, serverID, 1)
 	r.CellOwner.Wait()
 	value, found := r.ServerCells.Get(serverID)
@@ -36,17 +56,6 @@ func (r *CellRegistryRepository) AssignServerToCell(serverID entities.ServerID, 
 	}
 	r.ServerCells.Set(serverID, value, 1)
 	r.ServerCells.Wait()
-	r.UnassignedCells = r.removeCell(r.UnassignedCells, cell)
-	return r.CellOwner.Set(cell, serverID, 1)
-}
-
-func (r *CellRegistryRepository) removeCell(cells []entities.Cell, targetCell entities.Cell) []entities.Cell {
-	for i, cell := range cells {
-		if cell == targetCell {
-			return append(cells[:i], cells[i+1:]...)
-		}
-	}
-	return cells
 }
 
 func (r *CellRegistryRepository) UnassignServerFromAllCells(serverID entities.ServerID) {
@@ -57,7 +66,10 @@ func (r *CellRegistryRepository) UnassignServerFromAllCells(serverID entities.Se
 
 	for _, cell := range cells {
 		r.CellOwner.Del(cell)
-		r.UnassignedCells = append(r.UnassignedCells, cell)
 	}
 	r.ServerCells.Del(serverID)
+
+	r.mu.Lock()
+	r.unassignedCells = append(r.unassignedCells, cells...)
+	r.mu.Unlock()
 }
