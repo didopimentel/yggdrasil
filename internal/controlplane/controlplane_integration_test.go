@@ -2,7 +2,6 @@ package controlplane_test
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
@@ -12,12 +11,10 @@ import (
 	"github.com/didopimentel/yggdrasil/internal/controlplane"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 func TestOpenControlStreamConnects(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	t.Cleanup(cancel)
-
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
@@ -43,14 +40,21 @@ func TestOpenControlStreamConnects(t *testing.T) {
 		_ = conn.Close()
 	})
 
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	t.Cleanup(cancel)
+
 	client := pb.NewControlServiceClient(conn)
 	stream, err := client.OpenControlStream(ctx, &pb.OpenControlStreamRequest{ServerId: &pb.ServerId{Id: "test-server"}})
 	if err != nil {
 		t.Fatalf("OpenControlStream failed: %v", err)
 	}
 
-	_, err = stream.Recv()
-	if err != io.EOF {
-		t.Fatalf("expected stream to close cleanly, got: %v", err)
+	_, recvErr := stream.Recv()
+	if recvErr == nil {
+		t.Fatal("expected error when context expires, got nil")
+	}
+	st, _ := status.FromError(recvErr)
+	if st.Code().String() != "DeadlineExceeded" {
+		t.Fatalf("expected DeadlineExceeded, got: %v", recvErr)
 	}
 }

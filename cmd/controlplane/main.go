@@ -121,19 +121,34 @@ func main() {
 	playerServerRepository := repository.NewPlayerServerRepository(playerServerCache)
 	serverRegistryRepository := repository.NewServerRegistryRepository(serverRegistryCache)
 
-	_ = playerPositionRepository
-	_ = playerServerRepository
+	// --- Define grid ---
+	grid := entities.Grid{
+		Width:     int(cellAmount),
+		Height:    1,
+		CellSizeX: 1,
+		CellSizeY: 1,
+		OriginX:   0,
+		OriginY:   0,
+	}
 
 	// --- Init control-plane orchestrator ---
 	controlPlane := controlplane.New(logger)
-	placement := placement.New(logger)
+	placementManager := placement.New(placement.Params{
+		Logger:            logger,
+		CellRegistry:      cellRegistryRepository,
+		PlayerPositionRepo: playerPositionRepository,
+		PlayerServerRepo:  playerServerRepository,
+		ServerRegistry:    serverRegistryRepository,
+		Grid:              grid,
+		MigrationNotifier: controlPlane,
+	})
 	serverManager := servermanager.New(logger, serverToCellRatio, cellRegistryRepository, serverRegistryRepository)
 
 	// --- gRPC server ---
 	grpcServer := grpc.NewServer()
 
 	pb.RegisterControlServiceServer(grpcServer, controlPlane)
-	pb.RegisterPlacementServiceServer(grpcServer, placement)
+	pb.RegisterPlacementServiceServer(grpcServer, placementManager)
 	pb.RegisterServerManagerServiceServer(grpcServer, serverManager)
 
 	// --- Start listening ---
