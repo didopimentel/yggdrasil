@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -52,6 +53,7 @@ func (cp *ControlPlane) OpenControlStream(req *pb.OpenControlStreamRequest, stre
 
 	go func() {
 		for event := range ss.events {
+			fmt.Printf("Sending event to server %s: %v\n", serverID, event)
 			if err := stream.Send(event); err != nil {
 				cp.logger.Warn("failed to send control event", "server_id", serverID, "error", err)
 				cancel()
@@ -75,7 +77,9 @@ func (cp *ControlPlane) NotifyMigration(ctx context.Context, playerID entities.P
 	ss, ok := cp.streams[oldServerID]
 	cp.mu.RUnlock()
 
+	cp.logger.Info("notifying migration", "player_id", playerID, "old_server_id", oldServerID, "new_server_id", newServer.ID)
 	if !ok {
+		cp.logger.Warn("no control stream for old server", "server_id", oldServerID)
 		return nil
 	}
 
