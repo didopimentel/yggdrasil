@@ -1,31 +1,35 @@
 package repository
 
 import (
-	"github.com/dgraph-io/ristretto/v2"
+	"sync"
+
 	"github.com/didopimentel/yggdrasil/internal/entities"
 )
 
 type PlayerPositionRepository struct {
-	*ristretto.Cache[entities.PlayerID, entities.Position]
+	mu sync.RWMutex
+	m  map[entities.PlayerID]entities.Position
 }
 
-func NewPlayerPositionRepository(cache *ristretto.Cache[entities.PlayerID, entities.Position]) *PlayerPositionRepository {
-	return &PlayerPositionRepository{cache}
+func NewPlayerPositionRepository() *PlayerPositionRepository {
+	return &PlayerPositionRepository{m: make(map[entities.PlayerID]entities.Position)}
 }
 
 func (r *PlayerPositionRepository) GetPlayerPosition(playerID entities.PlayerID) (entities.Position, bool) {
-	value, found := r.Cache.Get(playerID)
-	if !found {
-		return entities.Position{}, false
-	}
-
-	return value, true
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	v, ok := r.m[playerID]
+	return v, ok
 }
 
-func (r *PlayerPositionRepository) SetPlayerPosition(playerID entities.PlayerID, position entities.Position) bool {
-	return r.Cache.Set(playerID, position, 1)
+func (r *PlayerPositionRepository) SetPlayerPosition(playerID entities.PlayerID, position entities.Position) {
+	r.mu.Lock()
+	r.m[playerID] = position
+	r.mu.Unlock()
 }
 
 func (r *PlayerPositionRepository) DeletePlayerPosition(playerID entities.PlayerID) {
-	r.Cache.Del(playerID)
+	r.mu.Lock()
+	delete(r.m, playerID)
+	r.mu.Unlock()
 }

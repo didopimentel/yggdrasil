@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/ristretto/v2"
 	"github.com/didopimentel/yggdrasil/api/pb"
 	"github.com/didopimentel/yggdrasil/internal/entities"
 	"github.com/didopimentel/yggdrasil/internal/repository"
@@ -21,38 +20,8 @@ func TestRegisterServer_Success(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
-	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create cell owner cache: %v", err)
-	}
-	t.Cleanup(cellOwnerCache.Close)
-
-	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create server cells cache: %v", err)
-	}
-	t.Cleanup(serverCellsCache.Close)
-
-	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create server registry cache: %v", err)
-	}
-	t.Cleanup(serverRegistryCache.Close)
-
-	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 100)
-	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+	cellRegistry := repository.NewCellRegistryRepository(100)
+	serverRegistry := repository.NewServerRegistryRepository()
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -105,17 +74,15 @@ func TestRegisterServer_Success(t *testing.T) {
 		t.Fatalf("expected EOF after close, got: %v", err)
 	}
 
-	// Verify that the server was assigned to the first 10 cells
+	// Verify server was assigned to the first 10 cells.
 	serverID := entities.ServerID("s1")
-	assignedCells, found := serverCellsCache.Get(serverID)
+	assignedCells, found := cellRegistry.GetServerCells(serverID)
 	if !found {
-		t.Fatalf("expected server to be assigned to cells, but no entry found in cache")
+		t.Fatalf("expected server to be assigned to cells, but no entry found")
 	}
 	if len(assignedCells) != 10 {
 		t.Fatalf("expected server to be assigned to 10 cells, got %d", len(assignedCells))
 	}
-
-	// Verify the cells are the first 10 (0-9)
 	for i, cell := range assignedCells {
 		if cell != entities.Cell(i) {
 			t.Fatalf("expected cell at index %d to be %d, got %d", i, i, cell)
@@ -127,38 +94,8 @@ func TestRegisterServer_ValidationError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	t.Cleanup(cancel)
 
-	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create cell owner cache: %v", err)
-	}
-	t.Cleanup(cellOwnerCache.Close)
-
-	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create server cells cache: %v", err)
-	}
-	t.Cleanup(serverCellsCache.Close)
-
-	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("failed to create server registry cache: %v", err)
-	}
-	t.Cleanup(serverRegistryCache.Close)
-
-	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 100)
-	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+	cellRegistry := repository.NewCellRegistryRepository(100)
+	serverRegistry := repository.NewServerRegistryRepository()
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

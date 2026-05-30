@@ -17,8 +17,6 @@ import (
 	"github.com/didopimentel/yggdrasil/internal/repository"
 	"github.com/didopimentel/yggdrasil/internal/servermanager"
 	"google.golang.org/grpc"
-
-	"github.com/dgraph-io/ristretto/v2"
 )
 
 func main() {
@@ -70,62 +68,11 @@ func main() {
 		serverToCellRatio = parsed
 	}
 
-	// --- Initialize cache ---
-	playerPositionCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.Position]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		logger.Error("failed to create cache", "error", err)
-		os.Exit(1)
-	}
-
-	playerServerCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.ServerID]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		logger.Error("failed to create cache", "error", err)
-		os.Exit(1)
-	}
-
-	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		logger.Error("failed to create cache", "error", err)
-		os.Exit(1)
-	}
-
-	cellRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		logger.Error("failed to create cache", "error", err)
-		os.Exit(1)
-	}
-
-	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e7,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		logger.Error("failed to create cache", "error", err)
-		os.Exit(1)
-	}
-
 	// --- Initialize repositories ---
-	cellRegistryRepository := repository.NewCellRegistryRepository(cellRegistryCache, serverCellsCache, cellAmount)
-	playerPositionRepository := repository.NewPlayerPositionRepository(playerPositionCache)
-	playerServerRepository := repository.NewPlayerServerRepository(playerServerCache)
-	serverRegistryRepository := repository.NewServerRegistryRepository(serverRegistryCache)
+	cellRegistryRepository := repository.NewCellRegistryRepository(cellAmount)
+	playerPositionRepository := repository.NewPlayerPositionRepository()
+	playerServerRepository := repository.NewPlayerServerRepository()
+	serverRegistryRepository := repository.NewServerRegistryRepository()
 
 	// --- Define grid ---
 	grid := entities.Grid{

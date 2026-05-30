@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/ristretto/v2"
 	"github.com/didopimentel/yggdrasil/api/pb"
 	"github.com/didopimentel/yggdrasil/internal/controlplane"
 	"github.com/didopimentel/yggdrasil/internal/entities"
@@ -34,50 +33,10 @@ func TestFullPlayerJourney(t *testing.T) {
 		serverToCellRatio = 10
 	)
 
-	playerPositionCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.Position]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("player position cache: %v", err)
-	}
-	t.Cleanup(playerPositionCache.Close)
-
-	playerServerCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("player server cache: %v", err)
-	}
-	t.Cleanup(playerServerCache.Close)
-
-	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("server registry cache: %v", err)
-	}
-	t.Cleanup(serverRegistryCache.Close)
-
-	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("cell owner cache: %v", err)
-	}
-	t.Cleanup(cellOwnerCache.Close)
-
-	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("server cells cache: %v", err)
-	}
-	t.Cleanup(serverCellsCache.Close)
-
-	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, cellAmount)
-	playerPositionRepo := repository.NewPlayerPositionRepository(playerPositionCache)
-	playerServerRepo := repository.NewPlayerServerRepository(playerServerCache)
-	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+	cellRegistry := repository.NewCellRegistryRepository(cellAmount)
+	playerPositionRepo := repository.NewPlayerPositionRepository()
+	playerServerRepo := repository.NewPlayerServerRepository()
+	serverRegistry := repository.NewServerRegistryRepository()
 
 	grid := entities.Grid{Width: int(cellAmount), Height: 1, CellSizeX: 1, CellSizeY: 1}
 
@@ -130,11 +89,8 @@ func TestFullPlayerJourney(t *testing.T) {
 	placementClient := pb.NewPlacementServiceClient(conn)
 	controlClient := pb.NewControlServiceClient(conn)
 
-	// Register both servers. AssignCells calls Wait() internally for cell caches.
-	// serverRegistry.SetServer does not call Wait(), so we flush explicitly after.
 	registerServer(ctx, t, smClient, "server-1", "127.0.0.1", 9001)
 	registerServer(ctx, t, smClient, "server-2", "127.0.0.1", 9002)
-	serverRegistryCache.Wait()
 
 	// server-1 opens its control stream to receive migration events.
 	migrateEvents := make(chan *pb.ControlEvent, 1)
@@ -177,10 +133,6 @@ func TestFullPlayerJourney(t *testing.T) {
 	}
 	_ = assignStream.CloseSend()
 	_, _ = assignStream.Recv() // drain EOF
-
-	// Flush player caches: UpdatePlayerPosition reads both to detect cell boundary crossing.
-	playerPositionCache.Wait()
-	playerServerCache.Wait()
 
 	// Move player p1 to X=15 → cell 15, owned by server-2. Triggers MIGRATE_OUT.
 	updateStream, err := placementClient.UpdatePlayerPosition(ctx)
@@ -265,72 +217,4 @@ func registerServer(ctx context.Context, t *testing.T, client pb.ServerManagerSe
 	}
 	_ = stream.CloseSend()
 	_, _ = stream.Recv() // drain EOF
-}
-
-func TestDiagCacheLookup(t *testing.T) {
-	playerPositionCache, _ := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.Position]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	playerServerCache, _ := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	serverRegistryCache, _ := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	cellOwnerCache, _ := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	serverCellsCache, _ := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-
-	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 20)
-	playerPositionRepo := repository.NewPlayerPositionRepository(playerPositionCache)
-	playerServerRepo := repository.NewPlayerServerRepository(playerServerCache)
-	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
-
-	cellRegistry.AssignCells("server-1", 10)
-	cellRegistry.AssignCells("server-2", 10)
-	serverRegistry.SetServer("server-1", entities.Server{ID: "server-1", Address: "127.0.0.1", Port: 9001})
-	serverRegistry.SetServer("server-2", entities.Server{ID: "server-2", Address: "127.0.0.1", Port: 9002})
-	serverRegistryCache.Wait()
-
-	grid := entities.Grid{Width: 20, Height: 1, CellSizeX: 1, CellSizeY: 1}
-
-	cell5 := grid.CellAt(entities.Position{X: 5})
-	t.Logf("cell at X=5: %v", cell5)
-	serverID, ok := cellRegistry.GetCellOwner(cell5)
-	t.Logf("GetCellOwner(cell5): serverID=%q ok=%v", serverID, ok)
-
-	playerPositionRepo.SetPlayerPosition("p1", entities.Position{X: 5})
-	playerServerRepo.SetPlayerServer("p1", serverID)
-	playerPositionCache.Wait()
-	playerServerCache.Wait()
-
-	oldPos, found := playerPositionRepo.GetPlayerPosition("p1")
-	t.Logf("GetPlayerPosition(p1): pos=%+v found=%v", oldPos, found)
-
-	oldServerID, foundSvr := playerServerRepo.GetPlayerServer("p1")
-	t.Logf("GetPlayerServer(p1): serverID=%q found=%v", oldServerID, foundSvr)
-
-	cell15 := grid.CellAt(entities.Position{X: 15})
-	t.Logf("cell at X=15: %v", cell15)
-	newServerID, ok2 := cellRegistry.GetCellOwner(cell15)
-	t.Logf("GetCellOwner(cell15): serverID=%q ok=%v", newServerID, ok2)
-
-	newServerEntity, ok3 := serverRegistry.GetServer(newServerID)
-	t.Logf("GetServer(server-2): server=%+v ok=%v", newServerEntity, ok3)
-
-	if !found {
-		t.Error("player position not found in cache after Wait()")
-	}
-	if !foundSvr {
-		t.Error("player server not found in cache after Wait()")
-	}
-	if !ok2 {
-		t.Error("cell 15 owner not found in cell registry")
-	}
-	if !ok3 {
-		t.Error("server-2 not found in server registry after Wait()")
-	}
 }

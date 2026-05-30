@@ -1,27 +1,35 @@
 package repository
 
 import (
-	"github.com/dgraph-io/ristretto/v2"
+	"sync"
+
 	"github.com/didopimentel/yggdrasil/internal/entities"
 )
 
 type PlayerServerRepository struct {
-	*ristretto.Cache[entities.PlayerID, entities.ServerID]
+	mu sync.RWMutex
+	m  map[entities.PlayerID]entities.ServerID
 }
 
-func NewPlayerServerRepository(cache *ristretto.Cache[entities.PlayerID, entities.ServerID]) *PlayerServerRepository {
-	return &PlayerServerRepository{Cache: cache}
+func NewPlayerServerRepository() *PlayerServerRepository {
+	return &PlayerServerRepository{m: make(map[entities.PlayerID]entities.ServerID)}
 }
 
 func (r *PlayerServerRepository) GetPlayerServer(playerID entities.PlayerID) (entities.ServerID, bool) {
-	value, found := r.Cache.Get(playerID)
-	return value, found
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	v, ok := r.m[playerID]
+	return v, ok
 }
 
-func (r *PlayerServerRepository) SetPlayerServer(playerID entities.PlayerID, serverID entities.ServerID) bool {
-	return r.Cache.Set(playerID, serverID, 1)
+func (r *PlayerServerRepository) SetPlayerServer(playerID entities.PlayerID, serverID entities.ServerID) {
+	r.mu.Lock()
+	r.m[playerID] = serverID
+	r.mu.Unlock()
 }
 
 func (r *PlayerServerRepository) DeletePlayerServer(playerID entities.PlayerID) {
-	r.Cache.Del(playerID)
+	r.mu.Lock()
+	delete(r.m, playerID)
+	r.mu.Unlock()
 }

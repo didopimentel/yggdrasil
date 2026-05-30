@@ -1,27 +1,35 @@
 package repository
 
 import (
-	"github.com/dgraph-io/ristretto/v2"
+	"sync"
+
 	"github.com/didopimentel/yggdrasil/internal/entities"
 )
 
 type ServerRegistryRepository struct {
-	*ristretto.Cache[entities.ServerID, entities.Server]
+	mu sync.RWMutex
+	m  map[entities.ServerID]entities.Server
 }
 
-func NewServerRegistryRepository(cache *ristretto.Cache[entities.ServerID, entities.Server]) *ServerRegistryRepository {
-	return &ServerRegistryRepository{Cache: cache}
+func NewServerRegistryRepository() *ServerRegistryRepository {
+	return &ServerRegistryRepository{m: make(map[entities.ServerID]entities.Server)}
 }
 
 func (r *ServerRegistryRepository) GetServer(serverID entities.ServerID) (entities.Server, bool) {
-	value, found := r.Cache.Get(serverID)
-	return value, found
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	v, ok := r.m[serverID]
+	return v, ok
 }
 
-func (r *ServerRegistryRepository) SetServer(serverID entities.ServerID, server entities.Server) bool {
-	return r.Cache.Set(serverID, server, 1)
+func (r *ServerRegistryRepository) SetServer(serverID entities.ServerID, server entities.Server) {
+	r.mu.Lock()
+	r.m[serverID] = server
+	r.mu.Unlock()
 }
 
 func (r *ServerRegistryRepository) DeleteServer(serverID entities.ServerID) {
-	r.Cache.Del(serverID)
+	r.mu.Lock()
+	delete(r.m, serverID)
+	r.mu.Unlock()
 }

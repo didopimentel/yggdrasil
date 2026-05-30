@@ -12,7 +12,6 @@ import (
 	"github.com/didopimentel/yggdrasil/internal/entities"
 	"github.com/didopimentel/yggdrasil/internal/placement"
 	"github.com/didopimentel/yggdrasil/internal/repository"
-	"github.com/dgraph-io/ristretto/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -20,55 +19,19 @@ import (
 func newTestPlacementManager(t *testing.T) *placement.PlacementManager {
 	t.Helper()
 
-	playerPositionCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.Position]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("player position cache: %v", err)
-	}
-
-	playerServerCache, err := ristretto.NewCache(&ristretto.Config[entities.PlayerID, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("player server cache: %v", err)
-	}
-
-	serverRegistryCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, entities.Server]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("server registry cache: %v", err)
-	}
-
-	cellOwnerCache, err := ristretto.NewCache(&ristretto.Config[entities.Cell, entities.ServerID]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("cell owner cache: %v", err)
-	}
-
-	serverCellsCache, err := ristretto.NewCache(&ristretto.Config[entities.ServerID, []entities.Cell]{
-		NumCounters: 1e4, MaxCost: 1 << 20, BufferItems: 64,
-	})
-	if err != nil {
-		t.Fatalf("server cells cache: %v", err)
-	}
-
-	cellRegistry := repository.NewCellRegistryRepository(cellOwnerCache, serverCellsCache, 10)
+	cellRegistry := repository.NewCellRegistryRepository(10)
 	cellRegistry.AssignCells("server-1", 10)
 
-	serverRegistry := repository.NewServerRegistryRepository(serverRegistryCache)
+	serverRegistry := repository.NewServerRegistryRepository()
 	serverRegistry.SetServer("server-1", entities.Server{ID: "server-1", Address: "localhost", Port: 9000})
-	serverRegistry.Wait()
 
 	grid := entities.Grid{Width: 10, Height: 1, CellSizeX: 1, CellSizeY: 1}
 
 	return placement.New(placement.Params{
 		Logger:             slog.Default(),
 		CellRegistry:       cellRegistry,
-		PlayerPositionRepo: repository.NewPlayerPositionRepository(playerPositionCache),
-		PlayerServerRepo:   repository.NewPlayerServerRepository(playerServerCache),
+		PlayerPositionRepo: repository.NewPlayerPositionRepository(),
+		PlayerServerRepo:   repository.NewPlayerServerRepository(),
 		ServerRegistry:     serverRegistry,
 		Grid:               grid,
 		MigrationNotifier:  &noopMigrationNotifier{},
