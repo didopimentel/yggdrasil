@@ -60,7 +60,12 @@ func TestRegisterServer_Success(t *testing.T) {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default(), 10, cellRegistry, serverRegistry))
+	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(servermanager.Params{
+		Logger:            slog.Default(),
+		ServerToCellRatio: 10,
+		CellRegistry:      cellRegistry,
+		ServerRegistry:    serverRegistry,
+	}))
 
 	go func() {
 		_ = grpcServer.Serve(lis)
@@ -161,7 +166,12 @@ func TestRegisterServer_ValidationError(t *testing.T) {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(slog.Default(), 10, cellRegistry, serverRegistry))
+	pb.RegisterServerManagerServiceServer(grpcServer, servermanager.New(servermanager.Params{
+		Logger:            slog.Default(),
+		ServerToCellRatio: 10,
+		CellRegistry:      cellRegistry,
+		ServerRegistry:    serverRegistry,
+	}))
 
 	go func() {
 		_ = grpcServer.Serve(lis)

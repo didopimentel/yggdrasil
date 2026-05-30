@@ -18,6 +18,13 @@ type MigrationNotifier interface {
 	NotifyMigration(ctx context.Context, playerID entities.PlayerID, oldServerID entities.ServerID, newServer entities.Server) error
 }
 
+// PlayerObserver is notified of player placement and migration events.
+type PlayerObserver interface {
+	OnPlayerPlaced(entities.PlayerID, entities.ServerID, entities.Position)
+	OnPlayerPositionUpdated(entities.PlayerID, entities.Position)
+	OnPlayerMigrated(entities.PlayerID, entities.ServerID)
+}
+
 type Params struct {
 	Logger             *slog.Logger
 	CellRegistry       *repository.CellRegistryRepository
@@ -26,6 +33,7 @@ type Params struct {
 	ServerRegistry     *repository.ServerRegistryRepository
 	Grid               entities.Grid
 	MigrationNotifier  MigrationNotifier
+	Observer           PlayerObserver // optional
 }
 
 type PlacementManager struct {
@@ -37,6 +45,7 @@ type PlacementManager struct {
 	serverRegistry     *repository.ServerRegistryRepository
 	grid               entities.Grid
 	migrationNotifier  MigrationNotifier
+	observer           PlayerObserver
 }
 
 func New(p Params) *PlacementManager {
@@ -48,6 +57,7 @@ func New(p Params) *PlacementManager {
 		serverRegistry:     p.ServerRegistry,
 		grid:               p.Grid,
 		migrationNotifier:  p.MigrationNotifier,
+		observer:           p.Observer,
 	}
 }
 
@@ -85,8 +95,15 @@ func (pm *PlacementManager) AssignPlayer(stream grpc.BidiStreamingServer[pb.Assi
 			continue
 		}
 
-		pm.playerPositionRepo.SetPlayerPosition(entities.PlayerID(player.GetId()), entities.Position{X: pos.GetX(), Y: pos.GetY(), Z: pos.GetZ()})
-		pm.playerServerRepo.SetPlayerServer(entities.PlayerID(player.GetId()), serverID)
+		entityPos := entities.Position{X: pos.GetX(), Y: pos.GetY(), Z: pos.GetZ()}
+		playerID := entities.PlayerID(player.GetId())
+
+		pm.playerPositionRepo.SetPlayerPosition(playerID, entityPos)
+		pm.playerServerRepo.SetPlayerServer(playerID, serverID)
+
+		if pm.observer != nil {
+			pm.observer.OnPlayerPlaced(playerID, serverID, entityPos)
+		}
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send assign player ack: %v", sendErr)
@@ -124,6 +141,10 @@ func (pm *PlacementManager) UpdatePlayerPosition(stream grpc.BidiStreamingServer
 
 		oldPos, found := pm.playerPositionRepo.GetPlayerPosition(playerID)
 		pm.playerPositionRepo.SetPlayerPosition(playerID, newPos)
+
+		if pm.observer != nil {
+			pm.observer.OnPlayerPositionUpdated(playerID, newPos)
+		}
 
 		if found {
 			oldCell := pm.grid.CellAt(oldPos)
@@ -171,7 +192,14 @@ func (pm *PlacementManager) CompleteMigration(stream grpc.BidiStreamingServer[pb
 			continue
 		}
 
-		pm.playerServerRepo.SetPlayerServer(entities.PlayerID(player.GetId()), entities.ServerID(serverID.GetId()))
+		playerID := entities.PlayerID(player.GetId())
+		toServerID := entities.ServerID(serverID.GetId())
+
+		pm.playerServerRepo.SetPlayerServer(playerID, toServerID)
+
+		if pm.observer != nil {
+			pm.observer.OnPlayerMigrated(playerID, toServerID)
+		}
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send complete migration ack: %v", sendErr)

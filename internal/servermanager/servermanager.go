@@ -12,16 +12,37 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ServerObserver is notified of server lifecycle events.
+type ServerObserver interface {
+	OnServerRegistered(entities.Server)
+	OnServerUnregistered(entities.ServerID)
+}
+
+type Params struct {
+	Logger            *slog.Logger
+	ServerToCellRatio int
+	CellRegistry      *repository.CellRegistryRepository
+	ServerRegistry    *repository.ServerRegistryRepository
+	Observer          ServerObserver // optional
+}
+
 type ServerManager struct {
 	pb.UnimplementedServerManagerServiceServer
 	logger            *slog.Logger
 	serverToCellRatio int
 	cellRegistry      *repository.CellRegistryRepository
 	serverRegistry    *repository.ServerRegistryRepository
+	observer          ServerObserver
 }
 
-func New(logger *slog.Logger, serverToCellRatio int, cellRegistry *repository.CellRegistryRepository, serverRegistry *repository.ServerRegistryRepository) *ServerManager {
-	return &ServerManager{logger: logger, serverToCellRatio: serverToCellRatio, cellRegistry: cellRegistry, serverRegistry: serverRegistry}
+func New(p Params) *ServerManager {
+	return &ServerManager{
+		logger:            p.Logger,
+		serverToCellRatio: p.ServerToCellRatio,
+		cellRegistry:      p.CellRegistry,
+		serverRegistry:    p.ServerRegistry,
+		observer:          p.Observer,
+	}
 }
 
 func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.RegisterServerRequest, pb.ControlAck]) error {
@@ -49,8 +70,11 @@ func (sm *ServerManager) RegisterServer(stream grpc.BidiStreamingServer[pb.Regis
 			Port:    server.GetPort(),
 		}
 		sm.cellRegistry.AssignCells(serverID, sm.serverToCellRatio)
-
 		sm.serverRegistry.SetServer(serverID, serverEntity)
+
+		if sm.observer != nil {
+			sm.observer.OnServerRegistered(serverEntity)
+		}
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send register server ack: %v", sendErr)
@@ -76,8 +100,13 @@ func (sm *ServerManager) UnregisterServer(stream grpc.BidiStreamingServer[pb.Unr
 			continue
 		}
 
-		sm.cellRegistry.UnassignServerFromAllCells(entities.ServerID(serverID.GetId()))
-		sm.serverRegistry.DeleteServer(entities.ServerID(serverID.GetId()))
+		id := entities.ServerID(serverID.GetId())
+		sm.cellRegistry.UnassignServerFromAllCells(id)
+		sm.serverRegistry.DeleteServer(id)
+
+		if sm.observer != nil {
+			sm.observer.OnServerUnregistered(id)
+		}
 
 		if sendErr := stream.Send(&pb.ControlAck{Ok: true}); sendErr != nil {
 			return status.Errorf(codes.Internal, "send unregister server ack: %v", sendErr)

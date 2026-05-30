@@ -1,0 +1,66 @@
+x-mock-server: &mock-server
+  build:
+    context: .
+    dockerfile: cmd/mock-server/Dockerfile
+  restart: on-failure
+  depends_on:
+    - controlplane
+  environment: &mock-server-env
+    YGGDRASIL_ADDR: "controlplane:9000"
+    YGGDRASIL_CELL_AMOUNT: "500"
+    MOCK_SERVER_PORT: "8000"
+
+services:
+  controlplane:
+    build: .
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      YGGDRASIL_ADDR: ":9000"
+      YGGDRASIL_DASHBOARD_ADDR: ":9001"
+      YGGDRASIL_CELL_AMOUNT: "500"
+      YGGDRASIL_SERVER_TO_CELL_RATIO: "100"
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "5173:5173"
+    depends_on:
+      - controlplane
+
+  mock-server-1:
+    <<: *mock-server
+    environment:
+      <<: *mock-server-env
+      MOCK_SERVER_ID: "server-1"
+      MOCK_SERVER_ADDR: "mock-server-1"
+
+  mock-server-2:
+    <<: *mock-server
+    environment:
+      <<: *mock-server-env
+      MOCK_SERVER_ID: "server-2"
+      MOCK_SERVER_ADDR: "mock-server-2"
+
+  mock-server-3:
+    <<: *mock-server
+    environment:
+      <<: *mock-server-env
+      MOCK_SERVER_ID: "server-3"
+      MOCK_SERVER_ADDR: "mock-server-3"
+
+  mock-server-4:
+    <<: *mock-server
+    environment:
+      <<: *mock-server-env
+      MOCK_SERVER_ID: "server-4"
+      MOCK_SERVER_ADDR: "mock-server-4"
+
+  mock-server-5:
+    <<: *mock-server
+    environment:
+      <<: *mock-server-env
+      MOCK_SERVER_ID: "server-5"
+      MOCK_SERVER_ADDR: "mock-server-5"

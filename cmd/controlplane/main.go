@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/didopimentel/yggdrasil/api/pb"
 	"github.com/didopimentel/yggdrasil/internal/controlplane"
+	"github.com/didopimentel/yggdrasil/internal/dashboard"
 	"github.com/didopimentel/yggdrasil/internal/entities"
 	"github.com/didopimentel/yggdrasil/internal/placement"
 	"github.com/didopimentel/yggdrasil/internal/repository"
@@ -20,7 +22,6 @@ import (
 )
 
 func main() {
-	// --- Setup structured logger ---
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -48,6 +49,11 @@ func main() {
 	if addr == "" {
 		logger.Error("YGGDRASIL_ADDR must be non-empty")
 		os.Exit(1)
+	}
+
+	dashboardAddr := ":9001"
+	if v := os.Getenv("YGGDRASIL_DASHBOARD_ADDR"); v != "" {
+		dashboardAddr = v
 	}
 
 	serverToCellRatio := 10
@@ -131,34 +137,42 @@ func main() {
 		OriginY:   0,
 	}
 
+	// --- Dashboard state tracker ---
+	tracker := dashboard.NewTracker()
+
 	// --- Init control-plane orchestrator ---
 	controlPlane := controlplane.New(logger)
 	placementManager := placement.New(placement.Params{
-		Logger:            logger,
-		CellRegistry:      cellRegistryRepository,
+		Logger:             logger,
+		CellRegistry:       cellRegistryRepository,
 		PlayerPositionRepo: playerPositionRepository,
-		PlayerServerRepo:  playerServerRepository,
-		ServerRegistry:    serverRegistryRepository,
-		Grid:              grid,
-		MigrationNotifier: controlPlane,
+		PlayerServerRepo:   playerServerRepository,
+		ServerRegistry:     serverRegistryRepository,
+		Grid:               grid,
+		MigrationNotifier:  controlPlane,
+		Observer:           tracker,
 	})
-	serverManager := servermanager.New(logger, serverToCellRatio, cellRegistryRepository, serverRegistryRepository)
+	serverManager := servermanager.New(servermanager.Params{
+		Logger:            logger,
+		ServerToCellRatio: serverToCellRatio,
+		CellRegistry:      cellRegistryRepository,
+		ServerRegistry:    serverRegistryRepository,
+		Observer:          tracker,
+	})
 
 	// --- gRPC server ---
 	grpcServer := grpc.NewServer()
-
 	pb.RegisterControlServiceServer(grpcServer, controlPlane)
 	pb.RegisterPlacementServiceServer(grpcServer, placementManager)
 	pb.RegisterServerManagerServiceServer(grpcServer, serverManager)
 
-	// --- Start listening ---
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		logger.Error("failed to listen", "addr", addr, "error", err)
 		os.Exit(1)
 	}
 
-	logger.Info("controlplane server starting", "addr", addr)
+	logger.Info("controlplane server starting", "grpc", addr, "dashboard", dashboardAddr)
 
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
@@ -167,14 +181,26 @@ func main() {
 		}
 	}()
 
+	// --- Dashboard HTTP server ---
+	httpServer := &http.Server{
+		Addr:    dashboardAddr,
+		Handler: dashboard.NewHandler(tracker),
+	}
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("dashboard HTTP server exited", "error", err)
+			os.Exit(1)
+		}
+	}()
+
 	// --- Graceful shutdown ---
 	waitForShutdown(func() {
 		logger.Info("shutting down gracefully")
 		grpcServer.GracefulStop()
+		httpServer.Close()
 	})
 }
 
-// waitForShutdown handles ctrl+c / SIGINT / SIGTERM cleanly.
 func waitForShutdown(onShutdown func()) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

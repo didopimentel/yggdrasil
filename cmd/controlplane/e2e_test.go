@@ -91,7 +91,12 @@ func TestFullPlayerJourney(t *testing.T) {
 		Grid:               grid,
 		MigrationNotifier:  cp,
 	})
-	sm := servermanager.New(slog.Default(), serverToCellRatio, cellRegistry, serverRegistry)
+	sm := servermanager.New(servermanager.Params{
+		Logger:            slog.Default(),
+		ServerToCellRatio: serverToCellRatio,
+		CellRegistry:      cellRegistry,
+		ServerRegistry:    serverRegistry,
+	})
 
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
